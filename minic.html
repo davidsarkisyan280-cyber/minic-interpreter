@@ -1,0 +1,2219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>MiniC Mega — 9 новых ключевых слов</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { font-family: 'Consolas', 'Monaco', monospace; background: #1e1e1e;
+         color: #ddd; padding: 16px; margin: 0; min-height: 100vh; }
+
+  .topbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+            margin-bottom: 10px; }
+  h1 { color: #4ec9b0; margin: 0 12px 0 0; font-size: 20px; }
+  .topbar select, .topbar button {
+    padding: 8px 14px; background: #333; color: #ddd; border: 1px solid #444;
+    border-radius: 3px; font-family: monospace; font-size: 13px; cursor: pointer; }
+  .topbar button.primary { background: #0e639c; color: white; border: none; }
+  .topbar button.primary:hover { background: #1177bb; }
+  .topbar button:hover { background: #444; }
+  .topbar select { min-width: 200px; }
+
+  .main {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    height: calc(100vh - 320px);
+    min-height: 350px;
+  }
+  .main > .editor-wrap { flex: 1 1 auto; min-width: 300px; }
+  .main > .side { flex: 0 0 380px; min-width: 260px; max-width: 500px; }
+
+  .editor-wrap {
+    display: flex;
+    border: 1px solid #444; border-radius: 3px; background: #252526;
+    overflow: hidden; font-size: 14px; line-height: 1.5;
+    font-family: 'Consolas', 'Monaco', monospace;
+    min-height: 200px;
+  }
+  .editor-wrap:focus-within { border-color: #0e639c; }
+
+  .line-numbers {
+    flex: 0 0 48px;
+    background: #1e1e1e; color: #555; text-align: right;
+    padding: 12px 8px 12px 4px; user-select: none;
+    overflow: hidden; border-right: 1px solid #333;
+    white-space: pre; font-size: 14px; line-height: 1.5;
+  }
+
+  .editor { position: relative; flex: 1 1 auto; min-width: 0; }
+  .editor pre,
+  .editor textarea {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    margin: 0; padding: 12px; border: 0; outline: none;
+    font: inherit; line-height: inherit; letter-spacing: inherit;
+    white-space: pre; overflow: auto; tab-size: 4; box-sizing: border-box;
+  }
+  .editor pre { color: #d4d4d4; pointer-events: none; z-index: 1; }
+  .editor pre code { font: inherit; line-height: inherit; white-space: pre; }
+  .editor textarea {
+    background: transparent; color: transparent; caret-color: #d4d4d4;
+    resize: none; z-index: 2;
+  }
+  .editor textarea::selection { background: #264f78; }
+
+  .kw    { color: #569cd6; }
+  .str   { color: #ce9178; }
+  .num   { color: #b5cea8; }
+  .cmt   { color: #6a9955; font-style: italic; }
+  .doc   { color: #6a9955; font-style: italic; }
+  .fn    { color: #dcdcaa; }
+  .op    { color: #d4d4d4; }
+  .pn    { color: #d4d4d4; }
+  .id    { color: #9cdcfe; }
+  .pp    { color: #c586c0; }
+
+  .side { display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+  .panel {
+    background: #252526; border: 1px solid #333; border-radius: 3px;
+    display: flex; flex-direction: column; overflow: hidden;
+    min-height: 60px;
+  }
+  .panel h3 {
+    margin: 0; padding: 8px 12px; background: #1e1e1e; color: #4ec9b0;
+    font-size: 12px; font-weight: normal; text-transform: uppercase;
+    letter-spacing: 1px; border-bottom: 1px solid #333;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-shrink: 0;
+  }
+  .panel h3 .badge { color: #666; font-size: 11px; text-transform: none; }
+  .panel .body {
+    padding: 10px 12px; overflow: auto; font-size: 13px;
+    line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+    flex: 1 1 auto;
+  }
+  .panel.output { flex: 1 1 200px; }
+  .panel.output .body { color: #ddd; }
+  .panel.output .body .err { color: #f48771; }
+  .panel.ast .body { font-size: 12px; color: #9cdcfe; max-height: 200px; }
+  .panel.vars .body { font-size: 12px; max-height: 120px; }
+  .panel.vars .body div { padding: 2px 0; border-bottom: 1px solid #2a2a2a; }
+  .panel.vars .body .k { color: #9cdcfe; }
+  .panel.vars .body .v { color: #b5cea8; }
+  .panel.mods .body { font-size: 12px; max-height: 100px; }
+  .panel.mods .body div { padding: 3px 0; border-bottom: 1px solid #2a2a2a; }
+  .panel.mods .body .k { color: #c586c0; }
+
+  .io-row { display: flex; gap: 12px; height: 140px; min-height: 120px; }
+  .io-row .panel { flex: 1 1 50%; min-width: 200px; }
+  .io-row textarea {
+    width: 100%; height: 100%; background: #1e1e1e; color: #ce9178;
+    border: 0; padding: 10px 12px; font-family: 'Consolas', monospace;
+    font-size: 13px; line-height: 1.5; resize: none; outline: none;
+  }
+  .io-row textarea::placeholder { color: #555; }
+
+  .hint { color: #666; font-size: 11px; padding: 6px 0; line-height: 1.6; }
+  code { color: #4ec9b0; }
+
+  @media (max-width: 900px) {
+    .main { flex-direction: column; height: auto; }
+    .main > .editor-wrap { height: 400px; }
+    .main > .side { flex: 1 1 auto; max-width: none; }
+    .io-row { flex-direction: column; height: auto; }
+    .io-row .panel { height: 120px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>MiniC 📦 Mega</h1>
+  <select id="examples" title="Примеры"></select>
+  <button class="primary" onclick="run()">▶ Запустить (Ctrl+Enter)</button>
+  <button onclick="clearOutput()">Очистить вывод</button>
+  <button onclick="downloadCode()">💾 Скачать</button>
+  <button onclick="document.getElementById('fileInput').click()">📂 Загрузить .mc</button>
+  <input type="file" id="fileInput" accept=".mc,.txt" style="display:none" multiple>
+  <button onclick="showModules()">📚 Модули</button>
+  <button onclick="toggleAst()" id="astBtn">🌳 AST</button>
+</div>
+
+<div class="main">
+  <div class="editor-wrap">
+    <div class="line-numbers" id="lineNumbers">1</div>
+    <div class="editor">
+      <pre aria-hidden="true"><code id="highlight"></code></pre>
+      <textarea id="code" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="panel output" id="output">
+      <h3>Вывод <span class="badge" id="outBadge"></span></h3>
+      <div class="body" id="outBody"></div>
+    </div>
+
+    <div class="panel mods" id="modsPanel">
+      <h3>Модули и макросы <span class="badge" id="modsBadge">—</span></h3>
+      <div class="body" id="modsBody"><span style="color:#666">— не подключены —</span></div>
+    </div>
+
+    <div class="panel vars" id="varsPanel">
+      <h3>Переменные <span class="badge" id="varsBadge">—</span></h3>
+      <div class="body" id="varsBody"></div>
+    </div>
+
+    <div class="panel ast" id="astPanel" style="display:none">
+      <h3>AST <span class="badge">дерево разбора</span></h3>
+      <div class="body" id="astBody"></div>
+    </div>
+  </div>
+</div>
+
+<div class="io-row">
+  <div class="panel">
+    <h3>Ввод <span class="badge">каждая строка — одно значение</span></h3>
+    <textarea id="inputData" spellcheck="false" placeholder="Аня&#10;25&#10;Москва"></textarea>
+  </div>
+  <div class="panel">
+    <h3>Справка <span class="badge">новые слова</span></h3>
+    <div class="body" style="font-size:12px;line-height:1.7;">
+      <b>Новое:</b>
+      <code>inline</code> · <code>array { }</code> · <code>auto</code> ·
+      <code>unsigned</code> · <code>long</code> · <code>#define</code> ·
+      <code>time</code> · <code>date</code> · <code>datetime</code><br>
+      <b>Модули:</b> <code>#include &lt;math.mc&gt;</code>
+    </div>
+  </div>
+</div>
+
+<div class="hint">
+  <b>Редактор:</b> автопары · Tab=4 · автосохранение · Ctrl+Enter → запуск · Ctrl+S → скачать
+</div>
+
+<script>
+// ============================================================
+// ВСТРОЕННЫЕ МОДУЛИ
+// ============================================================
+const BUILTIN_MODULES = {
+  "math.mc": `#pragma once
+function abs(int x) { if (x < 0) { return -x; } return x; }
+function max(int a, int b) { if (a > b) { return a; } return b; }
+function min(int a, int b) { if (a < b) { return a; } return b; }
+function gcd(int a, int b) { if (b == 0) { return a; } return gcd(b, a % b); }
+function lcm(int a, int b) { return a * b / gcd(a, b); }
+function fact(int n) { if (n <= 1) { return 1; } return n * fact(n - 1); }
+function fib(int n) { if (n < 2) { return n; } return fib(n - 1) + fib(n - 2); }
+function pow(int base, int exp) { int r = 1; for (let i = 0; i < exp; i++) { r *= base; } return r; }
+function isPrime(int n) { if (n < 2) { return false; } for (let i = 2; i * i <= n; i++) { if (n % i == 0) { return false; } } return true; }
+`,
+
+  "string.mc": `#pragma once
+function repeat(String s, int n) { String r = ""; for (let i = 0; i < n; i++) { r += s; } return r; }
+function padLeft(String s, int width, String ch) { String r = ""; int need = width - s.length(); for (let i = 0; i < need; i++) { r += ch; } return r + s; }
+function padRight(String s, int width, String ch) { String r = s; int need = width - s.length(); for (let i = 0; i < need; i++) { r += ch; } return r; }
+function reverse(String s) { String r = ""; for (let i = s.length() - 1; i >= 0; i--) { r += s.charAt(i); } return r; }
+`,
+
+  "array.mc": `#pragma once
+function sum(int arr[], int n) { int s = 0; for (let i = 0; i < n; i++) { s += arr[i]; } return s; }
+function maxOf(int arr[], int n) { int m = arr[0]; for (let i = 1; i < n; i++) { if (arr[i] > m) { m = arr[i]; } } return m; }
+function minOf(int arr[], int n) { int m = arr[0]; for (let i = 1; i < n; i++) { if (arr[i] < m) { m = arr[i]; } } return m; }
+function avg(int arr[], int n) { if (n == 0) { return 0; } return sum(arr, n) / n; }
+`,
+};
+
+const USER_FILES = {};
+
+// ============================================================
+// ПРЕПРОЦЕССОР (include + define)
+// ============================================================
+function preprocess(source, includedSet = new Set(), moduleList = null, defines = null) {
+  if (moduleList === null) moduleList = [];
+  if (defines === null) defines = new Map();
+
+  // Шаг 1: собираем все #define
+  const lines = source.split('\n');
+  const linesAfterDefine = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#define ')) {
+      const rest = trimmed.slice(8).trim();
+      // Форма: NAME VALUE  или  NAME(args) VALUE
+      const m1 = rest.match(/^(\w+)\s+(.+)$/);
+      if (m1) {
+        defines.set(m1[1], { params: null, body: m1[2] });
+        linesAfterDefine.push('// #define ' + m1[1]);
+        continue;
+      }
+      const m2 = rest.match(/^(\w+)\s*\(([^)]*)\)\s+(.+)$/);
+      if (m2) {
+        const params = m2[2].split(',').map(s => s.trim()).filter(s => s.length > 0);
+        defines.set(m2[1], { params, body: m2[3] });
+        linesAfterDefine.push('// #define ' + m2[1] + '(...)');
+        continue;
+      }
+    }
+    linesAfterDefine.push(line);
+  }
+
+  // Шаг 2: применяем define (простая текстовая подстановка)
+  // ВАЖНО: делаем после сбора всех define, но ДО include
+  let text = linesAfterDefine.join('\n');
+
+  // Применяем несколько раз — на случай вложенных макросов
+  for (let iter = 0; iter < 5; iter++) {
+    let changed = false;
+    for (const [name, def] of defines) {
+      if (def.params === null) {
+        const re = new RegExp(`\\b${name}\\b`, 'g');
+        const newText = text.replace(re, def.body);
+        if (newText !== text) { text = newText; changed = true; }
+      } else {
+        const re = new RegExp(`\\b${name}\\s*\\(([^()]*)\\)`, 'g');
+        const newText = text.replace(re, (m, argsStr) => {
+          const args = argsStr.split(',').map(a => a.trim());
+          let body = def.body;
+          def.params.forEach((p, i) => {
+            const pRe = new RegExp(`\\b${p}\\b`, 'g');
+            body = body.replace(pRe, args[i] ?? '');
+          });
+          return body;
+        });
+        if (newText !== text) { text = newText; changed = true; }
+      }
+    }
+    if (!changed) break;
+  }
+
+  // Шаг 3: обрабатываем #include
+  const includeLines = text.split('\n');
+  const result = [];
+
+  for (const line of includeLines) {
+    const trimmed = line.trim();
+
+    if (trimmed === '#pragma once') {
+      result.push('// #pragma once');
+      continue;
+    }
+
+    const m = trimmed.match(/^#include\s+[<"]([^>"]+)[>"]\s*$/);
+    if (m) {
+      const file = m[1];
+      if (includedSet.has(file)) {
+        result.push(`// #include "${file}" — уже подключён`);
+        continue;
+      }
+      let content = null, sourceType = '';
+      if (BUILTIN_MODULES[file]) { content = BUILTIN_MODULES[file]; sourceType = 'builtin'; }
+      else if (USER_FILES[file]) { content = USER_FILES[file]; sourceType = 'user'; }
+      else {
+        for (const key of Object.keys(BUILTIN_MODULES)) {
+          if (key === file + '.mc') { content = BUILTIN_MODULES[key]; sourceType = 'builtin'; break; }
+        }
+        if (!content) {
+          for (const key of Object.keys(USER_FILES)) {
+            if (key === file + '.mc') { content = USER_FILES[key]; sourceType = 'user'; break; }
+          }
+        }
+      }
+      if (content === null) throw new Error(`Модуль не найден: ${file}`);
+      includedSet.add(file);
+      moduleList.push({ name: file, type: sourceType });
+      result.push(`// ===== НАЧАЛО МОДУЛЯ: ${file} =====`);
+      result.push(preprocess(content, includedSet, moduleList, defines));
+      result.push(`// ===== КОНЕЦ МОДУЛЯ: ${file} =====`);
+      continue;
+    }
+    result.push(line);
+  }
+  return result.join('\n');
+}
+
+// ============================================================
+// ПРИМЕРЫ
+// ============================================================
+const EXAMPLES = {
+  "Новые слова": `// auto — автовывод типа
+auto x = 42;
+auto s = "привет";
+auto b = true;
+
+println("x = " + x + " (" + typeof x + ")");
+println("s = " + s + " (" + typeof s + ")");
+println("b = " + b + " (" + typeof b + ")");
+
+// unsigned — беззнаковое число
+unsigned int u = 100;
+println("u = " + u);
+
+// long — большое число
+long big = 9007199254;
+println("big = " + big);
+
+// inline — модификатор функции
+inline int add(int a, int b) {
+    return a + b;
+}
+println("add(3, 4) = " + add(3, 4));
+
+// array { } — литерал массива
+let arr = array { 10, 20, 30, 40, 50 };
+println("Массив: " + arr);
+for (x in arr) {
+    print(x + " ");
+}
+println();
+`,
+
+  "Время и дата": `println("Сейчас времени: " + time);
+println("Сегодня:        " + date);
+println("Полный момент:  " + datetime);
+
+println();
+
+println("Сообщение создано " + datetime);
+println("Отчёт сформирован " + date);
+println("Лог записан в " + time);
+`,
+
+  "#define макросы": `#define PI 3
+#define MAX 100
+#define GREETING "Привет, мир!"
+#define SQUARE(x) ((x) * (x))
+#define DOUBLE(x) ((x) + (x))
+
+println(GREETING);
+println("PI = " + PI);
+println("MAX = " + MAX);
+println("SQUARE(5) = " + SQUARE(5));
+println("SQUARE(3+2) = " + SQUARE(3+2));
+println("DOUBLE(10) = " + DOUBLE(10));
+println("DOUBLE(MAX) = " + DOUBLE(MAX));
+`,
+
+  "Всё вместе": `#define VERSION "1.0"
+#define MAX_ITEMS 5
+
+// auto
+auto name = "MiniC";
+auto count = 0;
+
+println("=== " + name + " v" + VERSION + " ===");
+println("Старт: " + datetime);
+println();
+
+// array { }
+let items = array { "первый", "второй", "третий", "четвёртый", "пятый" };
+
+println("Элементы (макс " + MAX_ITEMS + "):");
+for (item in items) {
+    count = count + 1;
+    if (count > MAX_ITEMS) break;
+    println("  " + count + ". " + item);
+}
+
+println();
+
+// inline функция
+inline int square(int x) {
+    return x * x;
+}
+
+unsigned int result = square(7);
+println("square(7) = " + result);
+
+// long
+long total = 1000000 * 1000;
+println("total = " + total);
+println();
+println("Финиш: " + time);
+`,
+
+  "Hello World": `println("Hello, MiniC!");`,
+
+  "Модуль math": `#include <math.mc>
+
+println("abs(-42) = " + abs(-42));
+println("max(10, 20) = " + max(10, 20));
+println("gcd(48, 18) = " + gcd(48, 18));
+println("fact(6) = " + fact(6));
+println("fib(10) = " + fib(10));
+println("pow(2, 8) = " + pow(2, 8));
+
+print("Простые до 30: ");
+for (let i = 2; i <= 30; i++) {
+    if (isPrime(i)) { print(i + " "); }
+}
+println();
+`
+};
+
+let astVisible = false;
+
+// ============================================================
+// ПОДСВЕТКА
+// ============================================================
+function escapeHtml(s) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function highlight(code) {
+  const src = escapeHtml(code);
+  const re = new RegExp([
+    String.raw`(^\s*#\w+.*$)`,
+    String.raw`(\/\/[^\n]*)`,
+    String.raw`(\/\*\*[\s\S]*?\*\/)`,
+    String.raw`(\/\*[\s\S]*?\*\/)`,
+    String.raw`("(?:[^"\\]|\\.)*")`,
+    String.raw`('(?:[^'\\]|\\.)*')`,
+    String.raw`\b(\d+)\b`,
+    String.raw`\b(int|String|bool|void|function|let|var|const|final|null|nil|undefined|struct|union|enum|virtual|abstract|extends|override|super|static|private|public|protected|switch|case|default|if|else|while|do|for|in|foreach|return|break|continue|try|catch|throw|finally|new|this|typeof|assert|true|false|inline|array|auto|unsigned|long|time|date|datetime)\b`,
+    String.raw`\b(print|println|input|Math)\b`,
+    String.raw`(=>(?!=)|&amp;&amp;|&lt;=|&gt;=|&lt;&lt;|&gt;&gt;|==|!=|\+\+|--|\+=|-=|\*=|\/=|%=|\|\||&amp;=|&lt;&lt;=|&gt;&gt;=)`,
+    String.raw`(&amp;|&lt;|&gt;|\+|-|\*|\/|%|!|=|\||\^|~)`,
+    String.raw`([{}();,\[\].:])`,
+    String.raw`([a-zA-Z_]\w*)`
+  ].join('|'), 'gm');
+
+  return src.replace(re,
+    (m, pp, lc, doc, bc, str1, str2, num, kw, fn, op2, op1, punct, ident) => {
+      if (pp)    return `<span class="pp">${m}</span>`;
+      if (lc)    return `<span class="cmt">${m}</span>`;
+      if (doc)   return `<span class="doc">${m}</span>`;
+      if (bc)    return `<span class="cmt">${m}</span>`;
+      if (str1)  return `<span class="str">${m}</span>`;
+      if (str2)  return `<span class="str">${m}</span>`;
+      if (num)   return `<span class="num">${m}</span>`;
+      if (kw)    return `<span class="kw">${m}</span>`;
+      if (fn)    return `<span class="fn">${m}</span>`;
+      if (op2)   return `<span class="op">${m}</span>`;
+      if (op1)   return `<span class="op">${m}</span>`;
+      if (punct) return `<span class="pn">${m}</span>`;
+      if (ident) return `<span class="id">${m}</span>`;
+      return m;
+    });
+}
+
+// ============================================================
+// РЕДАКТОР
+// ============================================================
+(function setupEditor() {
+  const ta  = document.getElementById('code');
+  const out = document.getElementById('highlight');
+  const lines = document.getElementById('lineNumbers');
+
+  function redraw() {
+    out.innerHTML = highlight(ta.value) + '\n';
+    const count = ta.value.split('\n').length;
+    let nums = '';
+    for (let i = 1; i <= count; i++) nums += i + '\n';
+    lines.textContent = nums;
+    try { localStorage.setItem('minic-code', ta.value); } catch(e) {}
+  }
+
+  function syncScroll() {
+    out.parentElement.scrollTop = ta.scrollTop;
+    out.parentElement.scrollLeft = ta.scrollLeft;
+    lines.scrollTop = ta.scrollTop;
+  }
+
+  ta.addEventListener('input', redraw);
+  ta.addEventListener('scroll', syncScroll);
+
+  ta.addEventListener('beforeinput', (e) => {
+    if (e.data === '{') { e.preventDefault(); insertBrace(ta, redraw); return; }
+    if (e.data === '(') { e.preventDefault(); insertPair(ta, '(', ')', redraw); return; }
+    if (e.data === '[') { e.preventDefault(); insertPair(ta, '[', ']', redraw); return; }
+    if (e.data === '"') { e.preventDefault(); insertPair(ta, '"', '"', redraw); return; }
+  });
+
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') { e.preventDefault(); insertAtCursor(ta, '    ', redraw); return; }
+    if (e.key === 'Enter') { if (handleEnter(ta, redraw)) e.preventDefault(); return; }
+    if (e.key === 'Backspace') {
+      const s = ta.selectionStart, en = ta.selectionEnd;
+      if (s === en && s > 0) {
+        const before = ta.value[s - 1], after = ta.value[s];
+        const pairs = { '{':'}', '(':')', '[':']', '"':'"' };
+        if (pairs[before] === after) {
+          e.preventDefault();
+          ta.value = ta.value.slice(0, s - 1) + ta.value.slice(s + 1);
+          ta.selectionStart = ta.selectionEnd = s - 1;
+          redraw();
+        }
+      }
+      return;
+    }
+  });
+
+  const sel = document.getElementById('examples');
+  sel.innerHTML = '<option value="">— Примеры —</option>';
+  for (const name of Object.keys(EXAMPLES)) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  }
+  sel.addEventListener('change', () => {
+    if (!sel.value) return;
+    ta.value = EXAMPLES[sel.value];
+    redraw();
+    ta.focus();
+  });
+
+  let saved = null;
+  try { saved = localStorage.getItem('minic-code'); } catch(e) {}
+  ta.value = saved || EXAMPLES["Всё вместе"];
+  redraw();
+  syncScroll();
+})();
+
+function insertAtCursor(ta, text, redraw) {
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  ta.value = ta.value.slice(0, start) + text + ta.value.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + text.length;
+  redraw();
+}
+
+function insertPair(ta, open, close, redraw) {
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  ta.value = ta.value.slice(0, start) + open + close + ta.value.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + 1;
+  redraw();
+}
+
+function insertBrace(ta, redraw) {
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const value = ta.value;
+  const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+  const lineText = value.slice(lineStart, start);
+  const indent = (lineText.match(/^[ \t]*/) || [''])[0];
+  const innerIndent = indent + '    ';
+  const inserted = '{\n' + innerIndent + '\n' + indent + '}';
+  ta.value = value.slice(0, start) + inserted + value.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + 1 + innerIndent.length;
+  redraw();
+}
+
+function handleEnter(ta, redraw) {
+  const start = ta.selectionStart, end = ta.selectionEnd, value = ta.value;
+  const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+  const lineEnd = value.indexOf('\n', start);
+  const line = value.slice(lineStart, lineEnd === -1 ? value.length : lineEnd);
+  const indent = (line.match(/^[ \t]*/) || [''])[0];
+  const beforeTrim = value.slice(0, start).replace(/\s+$/, '');
+  const afterTrim = value.slice(end).replace(/^\s+/, '');
+
+  if (beforeTrim.endsWith('{') && afterTrim.startsWith('}')) {
+    const parentLineStart = beforeTrim.lastIndexOf('\n') + 1;
+    const parentIndent = (beforeTrim.slice(parentLineStart).match(/^[ \t]*/) || [''])[0];
+    const innerIndent = parentIndent + '    ';
+    const inserted = '\n' + innerIndent + '\n' + parentIndent;
+    ta.value = value.slice(0, start) + inserted + value.slice(end);
+    ta.selectionStart = ta.selectionEnd = start + 1 + innerIndent.length;
+    redraw();
+    return true;
+  }
+
+  const inserted = '\n' + indent;
+  ta.value = value.slice(0, start) + inserted + value.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + inserted.length;
+  redraw();
+  return true;
+}
+
+// ============================================================
+// ФОРМАТ И ТИПЫ
+// ============================================================
+function formatValue(v) {
+  if (Array.isArray(v)) return '[' + v.map(formatValue).join(', ') + ']';
+  if (v === null || v === undefined) return 'null';
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  if (typeof v === 'function') return '[function]';
+  if (typeof v === 'object') {
+    if (v.__type) return `{${v.__type}}`;
+    if (v.__math) return 'Math';
+    if (v.__static_of) return v.__static_of;
+    return '{object}';
+  }
+  return String(v);
+}
+
+function typeOf(v) {
+  if (v === null || v === undefined) return 'null';
+  if (Array.isArray(v)) return 'array';
+  if (typeof v === 'function') return 'function';
+  if (typeof v === 'boolean') return 'bool';
+  if (typeof v === 'number') return 'int';
+  if (typeof v === 'string') return 'String';
+  if (typeof v === 'object' && v.__type) return v.__type;
+  return 'object';
+}
+
+// ============================================================
+// ВРЕМЯ И ДАТА (для time, date, datetime)
+// ============================================================
+function getTimeStr() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, '0') + ':' +
+         String(d.getMinutes()).padStart(2, '0') + ':' +
+         String(d.getSeconds()).padStart(2, '0');
+}
+function getDateStr() {
+  const d = new Date();
+  return String(d.getDate()).padStart(2, '0') + '.' +
+         String(d.getMonth() + 1).padStart(2, '0') + '.' +
+         d.getFullYear();
+}
+function getDateTimeStr() {
+  return getDateStr() + ' ' + getTimeStr();
+}
+
+// ============================================================
+// ЛЕКСЕР
+// ============================================================
+const KEYWORDS = new Set([
+  'int','String','bool','void','function','let','var','const','final',
+  'null','nil','undefined','struct','union','enum','virtual','abstract',
+  'extends','override','super','static','private','public','protected',
+  'switch','case','default','if','else','while','do','for','in','foreach',
+  'loop','yield',
+  'return','break','continue','try','catch','throw','finally',
+  'new','this','typeof','assert','true','false',
+  // НОВЫЕ:
+  'inline','array','auto','unsigned','long',
+  'time','date','datetime'
+]);
+
+function tokenize(src) {
+  const tokens = [];
+  const re = new RegExp([
+    String.raw`\s+`,
+    String.raw`\/\/[^\n]*`,
+    String.raw`\/\*\*[\s\S]*?\*\/`,
+    String.raw`\/\*[\s\S]*?\*\/`,
+    String.raw`\d+`,
+    String.raw`"(?:[^"\\]|\\.)*"`,
+    String.raw`[a-zA-Z_]\w*`,
+    String.raw`=>|==|!=|<=|>=|\+\+|--|\+=|-=|\*=|\/=|\|\||&&`,
+    String.raw`[+\-*/<>=!%]`,
+    String.raw`[{}();,\[\].:]`
+  ].join('|'), 'g');
+
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const s = m[0];
+    if (/^\s+$/.test(s)) continue;
+    if (s.startsWith('//')) continue;
+    if (s.startsWith('/**')) {
+      tokens.push({ type: 'DOC', value: s.slice(3, -2).replace(/^\s*\*\s?/gm, '').trim() });
+      continue;
+    }
+    if (s.startsWith('/*')) continue;
+
+    if (/^\d+$/.test(s)) tokens.push({ type: 'NUMBER', value: Number(s) });
+    else if (s[0] === '"') tokens.push({ type: 'STRING', value: JSON.parse(s) });
+    else if (/^[a-zA-Z_]/.test(s)) tokens.push({ type: KEYWORDS.has(s) ? 'KEYWORD' : 'IDENT', value: s });
+    else if (/^[+\-*/<>=!%&|]/.test(s)) tokens.push({ type: 'OP', value: s });
+    else tokens.push({ type: 'PUNCT', value: s });
+  }
+  return tokens;
+}
+
+// ============================================================
+// ПАРСЕР
+// ============================================================
+const BUILTIN_TYPES = ['int','String','bool','void','long','auto'];
+const TYPE_MODIFIERS = ['unsigned','long','inline'];
+
+class Parser {
+  constructor(tokens) {
+    this.t = tokens; this.p = 0; this.pendingDoc = null;
+    this.knownStructs = new Set();
+  }
+  peek(k = 0) { return this.t[this.p + k]; }
+  next() { return this.t[this.p++]; }
+  check(v) { return this.peek() && this.peek().value === v; }
+  expect(v) {
+    const t = this.next();
+    if (!t || t.value !== v) throw new Error(`Ожидалось "${v}", получено "${t?.value ?? 'EOF'}"`);
+    return t;
+  }
+  skipTrivia() {
+    while (this.peek() && this.peek().type === 'DOC') this.pendingDoc = this.next().value;
+  }
+  isType(t) {
+    if (!t || t.type !== 'KEYWORD') return false;
+    return BUILTIN_TYPES.includes(t.value);
+  }
+  isModifier(t) {
+    if (!t || t.type !== 'KEYWORD') return false;
+    return ['private','public','protected','static','virtual','override','abstract'].includes(t.value);
+  }
+  isTypeModifier(t) {
+    if (!t || t.type !== 'KEYWORD') return false;
+    return TYPE_MODIFIERS.includes(t.value);
+  }
+
+  parse() {
+    const body = [];
+    while (this.p < this.t.length) {
+      const s = this.statement();
+      if (s) body.push(s);
+    }
+    return { type: 'Program', body };
+  }
+
+  // Собираем модификаторы типа: unsigned long int — все вместе
+  collectTypePrefix() {
+    const mods = [];
+    let isInline = false;
+    while (this.peek() && this.peek().type === 'KEYWORD') {
+      const v = this.peek().value;
+      if (v === 'inline') {
+        isInline = true;
+        this.next();
+        continue;
+      }
+      if (TYPE_MODIFIERS.includes(v)) {
+        mods.push(v);
+        this.next();
+        continue;
+      }
+      if (BUILTIN_TYPES.includes(v)) {
+        mods.push(v);
+        this.next();
+        break;
+      }
+      break;
+    }
+    // Если после модификаторов не осталось типа — считаем что тип auto
+    let baseType = 'int';
+    const typeKeywords = mods.filter(m => BUILTIN_TYPES.includes(m));
+    if (typeKeywords.length > 0) {
+      baseType = typeKeywords[typeKeywords.length - 1];
+    } else if (mods.length > 0) {
+      baseType = 'int';  // только модификаторы, без типа — int
+    }
+    return {
+      modifiers: mods.filter(m => !BUILTIN_TYPES.includes(m)),
+      baseType,
+      isInline
+    };
+  }
+
+  statement() {
+    this.skipTrivia();
+    const t = this.peek();
+    if (!t) return null;
+
+    if (t.type === 'KEYWORD' && (t.value === 'break' || t.value === 'continue')) {
+      this.next(); this.expect(';');
+      return { type: t.value === 'break' ? 'Break' : 'Continue' };
+    }
+
+    if (t.type === 'KEYWORD' && t.value === 'throw') {
+      this.next();
+      const value = this.expression();
+      this.expect(';');
+      return { type: 'Throw', value };
+    }
+
+    if (t.type === 'KEYWORD' && t.value === 'yield') {
+      this.next();
+      const value = this.check(';') ? null : this.expression();
+      this.expect(';');
+      return { type: 'Yield', value };
+    }
+
+    if (t.type === 'KEYWORD' && t.value === 'assert') {
+      this.next(); this.expect('(');
+      const cond = this.expression();
+      let msg = null;
+      if (this.check(',')) { this.next(); msg = this.expression(); }
+      this.expect(')'); this.expect(';');
+      return { type: 'Assert', cond, msg };
+    }
+
+    if (t.type === 'KEYWORD' && t.value === 'switch') {
+      this.next(); this.expect('(');
+      const disc = this.expression(); this.expect(')');
+      this.expect('{');
+      const cases = [];
+      let defaultBody = null;
+      while (!this.check('}')) {
+        if (this.check('case')) {
+          this.next();
+          const val = this.expression(); this.expect(':');
+          const body = [];
+          while (!this.check('case') && !this.check('default') && !this.check('}')) {
+            const s = this.statement();
+            if (s) body.push(s);
+          }
+          cases.push({ value: val, body });
+        } else if (this.check('default')) {
+          this.next(); this.expect(':');
+          const body = [];
+          while (!this.check('case') && !this.check('default') && !this.check('}')) {
+            const s = this.statement();
+            if (s) body.push(s);
+          }
+          defaultBody = body;
+        } else throw new Error('В switch ожидается case или default');
+      }
+      this.expect('}');
+      return { type: 'Switch', disc, cases, defaultBody };
+    }
+
+    if (t.type === 'KEYWORD' && t.value === 'try') {
+      this.next();
+      const tryBody = this.block();
+      let catchParam = null, catchBody = null, finallyBody = null;
+      if (this.check('catch')) {
+        this.next(); this.expect('(');
+        catchParam = this.next().value;
+        this.expect(')');
+        catchBody = this.block();
+      }
+      if (this.check('finally')) {
+        this.next();
+        finallyBody = this.block();
+      }
+      if (!catchBody && !finallyBody) throw new Error('try требует catch или finally');
+      return { type: 'Try', tryBody, catchParam, catchBody, finallyBody };
+    }
+
+    if (t.type === 'KEYWORD' && t.value === 'enum') {
+      this.next();
+      const name = this.next().value;
+      this.expect('{');
+      const members = [];
+      let autoValue = 0;
+      while (!this.check('}')) {
+        const mname = this.next().value;
+        let mvalue = autoValue;
+        if (this.check('=')) {
+          this.next();
+          mvalue = this.evalConstExpr(this.expression());
+        }
+        members.push({ name: mname, value: mvalue });
+        autoValue = mvalue + 1;
+        if (this.check(',')) this.next();
+      }
+      this.expect('}');
+      this.knownStructs.add(name);
+      return { type: 'EnumDecl', name, members };
+    }
+
+    if (t.type === 'KEYWORD' && (t.value === 'struct' || t.value === 'union' ||
+        (t.value === 'abstract' && this.peek(1)?.value === 'struct'))) {
+      let isAbstract = false;
+      if (this.check('abstract')) { this.next(); isAbstract = true; }
+      const kind = this.next().value;
+      const name = this.next().value;
+      let parent = null;
+      if (this.check('extends')) { this.next(); parent = this.next().value; }
+      this.expect('{');
+      const fields = [], methods = [], statics = [];
+
+      while (!this.check('}')) {
+        this.skipTrivia();
+        let isVirtual = false, isOverride = false, isAbstractMethod = false, isStatic = false;
+        let access = 'public';
+        while (this.isModifier(this.peek())) {
+          const m = this.next().value;
+          if (m === 'virtual') isVirtual = true;
+          else if (m === 'override') isOverride = true;
+          else if (m === 'abstract') isAbstractMethod = true;
+          else if (m === 'static') isStatic = true;
+          else access = m;
+        }
+        const fieldType = this.next().value;
+        const memberName = this.next().value;
+
+        if (this.check('(')) {
+          this.next();
+          const params = [];
+          while (!this.check(')')) {
+            let ptype = 'auto', pname;
+            if (this.isType(this.peek()) || this.knownStructs.has(this.peek()?.value)) {
+              ptype = this.next().value; pname = this.next().value;
+            } else pname = this.next().value;
+            params.push({ type: ptype, name: pname });
+            if (this.check(',')) this.next();
+          }
+          this.expect(')');
+          if (this.check(';')) {
+            this.next();
+            methods.push({ name: memberName, returnType: fieldType, params, body: [], isVirtual: true, isOverride, isAbstract: true, isStatic, access });
+            continue;
+          }
+          const body = this.block();
+          methods.push({ name: memberName, returnType: fieldType, params, body, isVirtual, isOverride, isAbstract: false, isStatic, access });
+          continue;
+        }
+        let arraySize = null;
+        if (this.check('[')) {
+          this.next();
+          arraySize = this.check(']') ? null : this.expression();
+          this.expect(']');
+        }
+        let initValue = null;
+        if (this.check('=')) { this.next(); initValue = this.expression(); }
+        this.expect(';');
+        if (isStatic) statics.push({ type: fieldType, name: memberName, initValue });
+        else fields.push({ type: fieldType, name: memberName, arraySize, access });
+      }
+      this.expect('}');
+      this.knownStructs.add(name);
+      return { type: kind === 'struct' ? 'StructDecl' : 'UnionDecl', name, parent, fields, methods, statics, isAbstract };
+    }
+
+    // let / var / auto — автовывод
+    if (t.type === 'KEYWORD' && (t.value === 'let' || t.value === 'var' || t.value === 'auto')) {
+      this.next();
+      const name = this.next().value;
+      if (this.check('[')) {
+        this.next();
+        const size = this.check(']') ? null : this.expression();
+        this.expect(']'); this.expect(';');
+        return { type: 'VarDecl', varType: 'auto', name, size, array: true };
+      }
+      let value = null;
+      if (this.check('=')) { this.next(); value = this.expression(); }
+      this.expect(';');
+      return { type: 'VarDecl', varType: 'auto', name, value };
+    }
+
+    if (t.type === 'KEYWORD' && (t.value === 'const' || t.value === 'final')) {
+      this.next();
+      let vtype = 'auto';
+      if (this.peek() && (BUILTIN_TYPES.includes(this.peek().value) || this.knownStructs.has(this.peek().value))) {
+        vtype = this.next().value;
+      }
+      const name = this.next().value;
+      let value = null;
+      if (this.check('=')) { this.next(); value = this.expression(); }
+      this.expect(';');
+      return { type: 'VarDecl', varType: vtype, name, value, isConst: true };
+    }
+
+    if (t.type === 'KEYWORD' && t.value === 'function') {
+      this.next();
+      let isGenerator = false;
+      if (this.check('*')) { this.next(); isGenerator = true; }
+      if (this.check('(')) {
+        this.next();
+        const params = [];
+        while (!this.check(')')) {
+          let ptype = 'auto', pname;
+          if (this.isType(this.peek()) || this.knownStructs.has(this.peek()?.value)) {
+            ptype = this.next().value; pname = this.next().value;
+          } else pname = this.next().value;
+          params.push({ type: ptype, name: pname });
+          if (this.check(',')) this.next();
+        }
+        this.expect(')');
+        const body = this.block();
+        return { type: 'ExprStmt', expr: { type: 'FunctionLiteral', params, body, isGenerator } };
+      }
+      const name = this.next().value;
+      this.expect('(');
+      const params = [];
+      while (!this.check(')')) {
+        let ptype = 'auto', pname;
+        if (this.isType(this.peek()) || this.knownStructs.has(this.peek()?.value)) {
+          ptype = this.next().value; pname = this.next().value;
+        } else pname = this.next().value;
+        params.push({ type: ptype, name: pname });
+        if (this.check(',')) this.next();
+      }
+      this.expect(')');
+      const body = this.block();
+      const doc = this.pendingDoc; this.pendingDoc = null;
+      return { type: 'Func', returnType: 'auto', name, params, body, doc, isGenerator };
+    }
+
+    if (t.type === 'KEYWORD' && t.value === 'new') {
+      this.next();
+      const typeName = this.next().value;
+      this.expect('(');
+      const args = [];
+      while (!this.check(')')) {
+        args.push(this.expression());
+        if (this.check(',')) this.next();
+      }
+      this.expect(')');
+      const expr = { type: 'Call', callee: { type: 'Var', name: typeName }, args };
+      this.expect(';');
+      return { type: 'ExprStmt', expr };
+    }
+
+    // C-стиль: тип + имя (с новыми модификаторами)
+    const t0 = this.peek();
+    const isUserType = t0 && t0.type === 'IDENT' && this.knownStructs.has(t0.value);
+    const isBuiltinType = t0 && t0.type === 'KEYWORD' && BUILTIN_TYPES.includes(t0.value);
+    const isTypeMod = t0 && t0.type === 'KEYWORD' && TYPE_MODIFIERS.includes(t0.value);
+
+    if (isBuiltinType || isUserType || isTypeMod) {
+      const prefix = this.collectTypePrefix();
+      const type = prefix.baseType;
+      const isUnsigned = prefix.modifiers.includes('unsigned');
+      const isLong = prefix.modifiers.includes('long') || type === 'long';
+      const isInlineFunc = prefix.isInline;
+
+      // Всё ещё может быть имя — но может и function key
+      if (this.peek()?.value === 'function') {
+        this.next();
+        const name = this.next().value;
+        this.expect('(');
+        const params = [];
+        while (!this.check(')')) {
+          const ptype = this.next().value;
+          const pname = this.next().value;
+          params.push({ type: ptype, name: pname });
+          if (this.check(',')) this.next();
+        }
+        this.expect(')');
+        const body = this.block();
+        return { type: 'Func', returnType: type, name, params, body, isInline: true };
+      }
+
+      const name = this.next().value;
+
+      if (this.check('(')) {
+        this.next();
+        const params = [];
+        while (!this.check(')')) {
+          const ptype = this.next().value;
+          let isArr = false;
+          if (this.check('[')) { this.next(); this.expect(']'); isArr = true; }
+          const pname = this.next().value;
+          params.push({ type: ptype, name: pname, isArray: isArr });
+          if (this.check(',')) this.next();
+        }
+        this.expect(')');
+        const body = this.block();
+        const doc = this.pendingDoc; this.pendingDoc = null;
+        return { type: 'Func', returnType: type, name, params, body, doc, isInline: isInlineFunc };
+      }
+      if (this.check('[')) {
+        this.next();
+        const size = this.check(']') ? null : this.expression();
+        this.expect(']'); this.expect(';');
+        return { type: 'VarDecl', varType: type, name, size, array: true, isUnsigned };
+      }
+      let value = null;
+      if (this.check('=')) { this.next(); value = this.expression(); }
+      this.expect(';');
+      return { type: 'VarDecl', varType: type, name, value, isUnsigned, isLong };
+    }
+
+    if (t.type === 'KEYWORD') {
+      if (t.value === 'if') {
+        this.next(); this.expect('(');
+        const cond = this.expression(); this.expect(')');
+        const body = this.block();
+        let elseBody = null, elseIf = null;
+        if (this.check('else')) {
+          this.next();
+          if (this.check('if')) elseIf = this.statement();
+          else elseBody = this.block();
+        }
+        return { type: 'If', cond, body, elseBody, elseIf };
+      }
+      if (t.value === 'while') {
+        this.next(); this.expect('(');
+        const cond = this.expression(); this.expect(')');
+        return { type: 'While', cond, body: this.block() };
+      }
+      if (t.value === 'do') {
+        this.next();
+        const body = this.block();
+        this.expect('while'); this.expect('(');
+        const cond = this.expression();
+        this.expect(')'); this.expect(';');
+        return { type: 'DoWhile', body, cond };
+      }
+      if (t.value === 'for') {
+        this.next(); this.expect('(');
+        let init = null, isForeach = false, iterVar = null, iterable = null;
+
+        if (this.isType(this.peek()) || (this.peek()?.type === 'IDENT' && this.knownStructs.has(this.peek().value))) {
+          const vtype = this.next().value;
+          const vname = this.next().value;
+          if (this.check('in')) {
+            this.next();
+            iterVar = { name: vname, declare: true, type: vtype };
+            iterable = this.expression();
+            isForeach = true;
+          } else {
+            let vval = null;
+            if (this.check('=')) { this.next(); vval = this.expression(); }
+            init = { type: 'VarDecl', varType: vtype, name: vname, value: vval };
+          }
+        } else if (this.check('let') || this.check('var') || this.check('auto')) {
+          this.next();
+          const vname = this.next().value;
+          if (this.check('in')) {
+            this.next();
+            iterVar = { name: vname, declare: true, type: 'auto' };
+            iterable = this.expression();
+            isForeach = true;
+          } else {
+            let vval = null;
+            if (this.check('=')) { this.next(); vval = this.expression(); }
+            init = { type: 'VarDecl', varType: 'auto', name: vname, value: vval };
+          }
+        } else if (this.peek()?.type === 'IDENT' && this.peek(1)?.value === 'in') {
+          const vname = this.next().value;
+          this.next();
+          iterVar = { name: vname, declare: false, type: 'auto' };
+          iterable = this.expression();
+          isForeach = true;
+        } else if (!this.check(';')) {
+          init = { type: 'ExprStmt', expr: this.expression() };
+        }
+
+        if (isForeach) {
+          this.expect(')');
+          return { type: 'Foreach', iterVar, iterable, body: this.block() };
+        }
+        this.expect(';');
+        const cond = this.check(';') ? { type: 'Number', value: 1 } : this.expression();
+        this.expect(';');
+        const update = this.check(')') ? null : this.expression();
+        this.expect(')');
+        return { type: 'For', init, cond, update, body: this.block() };
+      }
+      if (t.value === 'return') {
+        this.next();
+        const val = this.check(';') ? null : this.expression();
+        this.expect(';');
+        return { type: 'Return', value: val };
+      }
+    }
+
+    const expr = this.expression();
+    this.expect(';');
+    return { type: 'ExprStmt', expr };
+  }
+
+  block() {
+    this.expect('{');
+    const body = [];
+    while (!this.check('}')) {
+      const s = this.statement();
+      if (s) body.push(s);
+    }
+    this.expect('}');
+    return body;
+  }
+
+  evalConstExpr(node) {
+    if (node.type === 'Number') return node.value;
+    if (node.type === 'Unary' && node.op === '-') return -this.evalConstExpr(node.value);
+    if (node.type === 'Binary') {
+      const l = this.evalConstExpr(node.left);
+      const r = this.evalConstExpr(node.right);
+      switch (node.op) {
+        case '+': return l + r;
+        case '-': return l - r;
+        case '*': return l * r;
+        case '/': return l / r;
+      }
+    }
+    throw new Error('Ожидалось константное выражение');
+  }
+
+  expression() { return this.assignment(); }
+
+  assignment() {
+    const left = this.logicalOr();
+    if (this.check('=')) { this.next(); return { type: 'Assign', target: left, value: this.assignment() }; }
+    if (['+=','-=','*=','/='].includes(this.peek()?.value)) {
+      const op = this.next().value;
+      return { type: 'CompoundAssign', op, target: left, value: this.assignment() };
+    }
+    return left;
+  }
+
+  logicalOr() {
+    let left = this.logicalAnd();
+    while (this.check('||')) { this.next(); left = { type: 'Logical', op: '||', left, right: this.logicalAnd() }; }
+    return left;
+  }
+  logicalAnd() {
+    let left = this.equality();
+    while (this.check('&&')) { this.next(); left = { type: 'Logical', op: '&&', left, right: this.equality() }; }
+    return left;
+  }
+  equality() {
+    let left = this.comparison();
+    while (this.check('==') || this.check('!=')) {
+      const op = this.next().value;
+      left = { type: 'Binary', op, left, right: this.comparison() };
+    }
+    return left;
+  }
+  comparison() {
+    let left = this.additive();
+    while (['<','>','<=','>='].includes(this.peek()?.value)) {
+      const op = this.next().value;
+      left = { type: 'Binary', op, left, right: this.additive() };
+    }
+    return left;
+  }
+  additive() {
+    let left = this.multiplicative();
+    while (this.check('+') || this.check('-')) {
+      const op = this.next().value;
+      left = { type: 'Binary', op, left, right: this.multiplicative() };
+    }
+    return left;
+  }
+  multiplicative() {
+    let left = this.unary();
+    while (this.check('*') || this.check('/') || this.check('%')) {
+      const op = this.next().value;
+      left = { type: 'Binary', op, left, right: this.unary() };
+    }
+    return left;
+  }
+  unary() {
+    if (this.check('typeof')) { this.next(); return { type: 'TypeOf', value: this.unary() }; }
+    if (this.check('++')) { this.next(); return { type: 'Update', op: '++', prefix: true, target: this.unary() }; }
+    if (this.check('--')) { this.next(); return { type: 'Update', op: '--', prefix: true, target: this.unary() }; }
+    if (this.check('-')) { this.next(); return { type: 'Unary', op: '-', value: this.unary() }; }
+    if (this.check('!')) { this.next(); return { type: 'Unary', op: '!', value: this.unary() }; }
+    return this.postfix();
+  }
+  postfix() {
+    let expr = this.primary();
+    while (true) {
+      if (this.check('++')) { this.next(); expr = { type: 'Update', op: '++', prefix: false, target: expr }; }
+      else if (this.check('--')) { this.next(); expr = { type: 'Update', op: '--', prefix: false, target: expr }; }
+      else if (this.check('.')) { this.next(); expr = { type: 'Member', object: expr, property: this.next().value }; }
+      else if (this.check('(')) {
+        this.next();
+        const args = [];
+        while (!this.check(')')) {
+          args.push(this.expression());
+          if (this.check(',')) this.next();
+        }
+        this.expect(')');
+        expr = { type: 'Call', callee: expr, args };
+      } else if (this.check('[')) {
+        this.next();
+        const index = this.expression();
+        this.expect(']');
+        expr = { type: 'Index', object: expr, index };
+      } else break;
+    }
+    return expr;
+  }
+  primary() {
+    const t = this.next();
+    if (!t) throw new Error('Неожиданный конец программы');
+    if (t.type === 'NUMBER') return { type: 'Number', value: t.value };
+    if (t.type === 'STRING') return { type: 'String', value: t.value };
+    if (t.type === 'IDENT') return { type: 'Var', name: t.value };
+    if (t.type === 'KEYWORD' && t.value === 'this') return { type: 'This' };
+    if (t.type === 'KEYWORD' && t.value === 'super') return { type: 'Super' };
+    if (t.type === 'KEYWORD' && t.value === 'true') return { type: 'Bool', value: true };
+    if (t.type === 'KEYWORD' && t.value === 'false') return { type: 'Bool', value: false };
+    if (t.type === 'KEYWORD' && (t.value === 'null' || t.value === 'nil' || t.value === 'undefined')) return { type: 'Null' };
+
+    // НОВОЕ: time, date, datetime как значения
+    if (t.type === 'KEYWORD' && t.value === 'time') return { type: 'TimeNow' };
+    if (t.type === 'KEYWORD' && t.value === 'date') return { type: 'DateNow' };
+    if (t.type === 'KEYWORD' && t.value === 'datetime') return { type: 'DateTimeNow' };
+
+    // НОВОЕ: array { ... } — литерал массива
+    if (t.type === 'KEYWORD' && t.value === 'array') {
+      this.expect('{');
+      const items = [];
+      while (!this.check('}')) {
+        items.push(this.expression());
+        if (this.check(',')) this.next();
+      }
+      this.expect('}');
+      return { type: 'ArrayLit', items };
+    }
+
+    if (t.type === 'KEYWORD' && t.value === 'function') {
+      let isGenerator = false;
+      if (this.check('*')) { this.next(); isGenerator = true; }
+      this.expect('(');
+      const params = [];
+      while (!this.check(')')) {
+        let ptype = 'auto', pname;
+        if (this.isType(this.peek())) { ptype = this.next().value; pname = this.next().value; }
+        else pname = this.next().value;
+        params.push({ type: ptype, name: pname });
+        if (this.check(',')) this.next();
+      }
+      this.expect(')');
+      const body = this.block();
+      return { type: 'FunctionLiteral', params, body, isGenerator };
+    }
+    if (t.value === '[') {
+      const items = [];
+      while (!this.check(']')) {
+        items.push(this.expression());
+        if (this.check(',')) this.next();
+      }
+      this.expect(']');
+      return { type: 'ArrayLit', items };
+    }
+    if (t.value === '(') {
+      const saveP = this.p;
+      try {
+        const params = [];
+        while (!this.check(')')) {
+          if (this.peek().type === 'IDENT') params.push({ type: 'auto', name: this.next().value });
+          else throw new Error('not arrow');
+          if (this.check(',')) this.next();
+        }
+        this.expect(')');
+        if (this.check('=>')) {
+          this.next();
+          if (this.check('{')) return { type: 'FunctionLiteral', params, body: this.block() };
+          const expr = this.expression();
+          return { type: 'FunctionLiteral', params, body: [{ type: 'Return', value: expr }] };
+        }
+        this.p = saveP;
+      } catch (e) { this.p = saveP; }
+      const e = this.expression();
+      this.expect(')');
+      return e;
+    }
+    if (t.type === 'IDENT' && this.check('=>')) {
+      this.next();
+      const params = [{ type: 'auto', name: t.value }];
+      if (this.check('{')) return { type: 'FunctionLiteral', params, body: this.block() };
+      const expr = this.expression();
+      return { type: 'FunctionLiteral', params, body: [{ type: 'Return', value: expr }] };
+    }
+    throw new Error(`Неожиданный токен: "${t.value}"`);
+  }
+}
+
+// ============================================================
+// ИНТЕРПРЕТАТОР
+// ============================================================
+class ReturnSignal { constructor(v) { this.value = v; } }
+class BreakSignal {}
+class ContinueSignal {}
+class ThrowSignal { constructor(v) { this.value = v; } }
+
+class Scope {
+  constructor(parent = null) {
+    this.vars = new Map();
+    this.consts = new Set();
+    this.parent = parent;
+  }
+  get(name) {
+    if (this.vars.has(name)) return this.vars.get(name);
+    if (this.parent) return this.parent.get(name);
+    throw new ThrowSignal(`Переменная "${name}" не объявлена`);
+  }
+  set(name, value) {
+    if (this.vars.has(name)) {
+      if (this.consts.has(name)) throw new ThrowSignal(`Нельзя изменить const "${name}"`);
+      this.vars.set(name, value); return;
+    }
+    if (this.parent) { this.parent.set(name, value); return; }
+    throw new ThrowSignal(`Переменная "${name}" не объявлена`);
+  }
+  declare(name, value, isConst = false) {
+    this.vars.set(name, value);
+    if (isConst) this.consts.add(name);
+  }
+  snapshot() {
+    const result = {};
+    let s = this;
+    while (s) {
+      for (const [k, v] of s.vars) if (!(k in result)) result[k] = v;
+      s = s.parent;
+    }
+    return result;
+  }
+}
+
+class UserFunction {
+  constructor(params, body, closure, name = '<lambda>', isGenerator = false) {
+    this.params = params; this.body = body; this.closure = closure;
+    this.name = name; this.isGenerator = isGenerator;
+  }
+}
+
+class Interpreter {
+  constructor(write, inputFn) {
+    this.write = write; this.inputFn = inputFn;
+    this.global = new Scope();
+    this.funcs = new Map();
+    this.structs = new Map();
+    this.statics = new Map();
+    this.currentScope = this.global;
+    this.currentThis = null;
+    this.currentSuper = null;
+  }
+
+  print(v) { this.write(formatValue(v) + '\n'); }
+
+  run(ast) {
+    for (const node of ast.body) {
+      if (node.type === 'Func') this.funcs.set(node.name, new UserFunction(node.params, node.body, this.global, node.name, node.isGenerator));
+    }
+    for (const node of ast.body) {
+      if (node.type === 'StructDecl' || node.type === 'UnionDecl') {
+        this.structs.set(node.name, node);
+        const st = {};
+        for (const s of (node.statics || [])) {
+          st[s.name] = s.initValue ? this.eval(s.initValue) : this.makeDefault(s.type);
+        }
+        this.statics.set(node.name, st);
+      }
+      if (node.type === 'EnumDecl') {
+        const obj = { __enumName: node.name };
+        for (const m of node.members) obj[m.name] = m.value;
+        this.global.declare(node.name, obj, true);
+      }
+    }
+    for (const node of ast.body) {
+      if (['Func','StructDecl','UnionDecl','EnumDecl'].includes(node.type)) continue;
+      this.exec(node);
+    }
+  }
+
+  makeDefault(type) {
+    if (type === 'String') return '';
+    if (type === 'bool') return false;
+    if (type === 'int' || type === 'auto' || type === 'long') return 0;
+    if (this.structs.has(type)) return this.createStructInstance(type, []);
+    return 0;
+  }
+
+  createStructInstance(typeName, args) {
+    const tmpl = this.structs.get(typeName);
+    if (!tmpl) throw new ThrowSignal(`Неизвестный тип "${typeName}"`);
+    if (tmpl.isAbstract) throw new ThrowSignal(`Нельзя создать экземпляр abstract "${typeName}"`);
+    const obj = { __type: typeName, __methods: {} };
+    if (tmpl.parent) {
+      const parentObj = this.createStructInstance(tmpl.parent, []);
+      for (const k of Object.keys(parentObj)) {
+        if (k === '__type') continue;
+        if (k === '__methods') {
+          for (const m of Object.keys(parentObj.__methods)) obj.__methods[m] = parentObj.__methods[m];
+          continue;
+        }
+        obj[k] = parentObj[k];
+      }
+      obj.__super_methods = Object.assign({}, parentObj.__methods);
+      obj.__super_target = this.createStructInstance(tmpl.parent, []);
+      for (const k of Object.keys(obj)) {
+        if (k.startsWith('__')) continue;
+        obj.__super_target[k] = obj[k];
+      }
+    }
+    tmpl.fields.forEach((f, i) => {
+      if (f.arraySize) {
+        const size = this.eval(f.arraySize);
+        obj[f.name] = new Array(size).fill(0);
+      } else if (i < args.length) obj[f.name] = args[i];
+      else if (!(f.name in obj)) obj[f.name] = this.makeDefault(f.type);
+    });
+    for (const m of tmpl.methods) obj.__methods[m.name] = m;
+    return obj;
+  }
+
+  // Обёртка: применяем unsigned-модификатор
+  applyUnsigned(value, isUnsigned) {
+    if (!isUnsigned) return value;
+    if (typeof value === 'number' && value < 0) return -value;
+    return value;
+  }
+
+  exec(node) {
+    switch (node.type) {
+      case 'VarDecl': {
+        let value;
+        if (node.array) {
+          const size = node.size ? this.eval(node.size) : 0;
+          if (this.structs.has(node.varType)) {
+            value = [];
+            for (let i = 0; i < size; i++) value.push(this.createStructInstance(node.varType, []));
+          } else value = new Array(size).fill(0);
+        } else if (node.value) value = this.eval(node.value);
+        else if (this.structs.has(node.varType)) value = this.createStructInstance(node.varType, []);
+        else if (node.varType === 'auto') value = 0;
+        else value = this.makeDefault(node.varType);
+        value = this.applyUnsigned(value, node.isUnsigned);
+        this.currentScope.declare(node.name, value, node.isConst);
+        return;
+      }
+      case 'ExprStmt': this.eval(node.expr); return;
+      case 'Throw': throw new ThrowSignal(this.eval(node.value));
+      case 'Yield': throw new ThrowSignal('yield вне генератора');
+      case 'Assert': {
+        const ok = this.eval(node.cond);
+        if (!ok) {
+          const msg = node.msg ? this.eval(node.msg) : 'assert failed';
+          throw new ThrowSignal(`AssertionError: ${msg}`);
+        }
+        return;
+      }
+      case 'Switch': {
+        const d = this.eval(node.disc);
+        for (const c of node.cases) {
+          if (this.eval(c.value) === d) {
+            try { for (const s of c.body) this.exec(s); }
+            catch (e) { if (e instanceof BreakSignal) return; throw e; }
+            return;
+          }
+        }
+        if (node.defaultBody) {
+          try { for (const s of node.defaultBody) this.exec(s); }
+          catch (e) { if (e instanceof BreakSignal) return; throw e; }
+        }
+        return;
+      }
+      case 'Try': {
+        let pendingError = null;
+        try { for (const s of node.tryBody) this.exec(s); }
+        catch (e) {
+          if (e instanceof ThrowSignal && node.catchBody) {
+            const scope = new Scope(this.currentScope);
+            const old = this.currentScope;
+            this.currentScope = scope;
+            this.currentScope.declare(node.catchParam, e.value);
+            try { for (const s of node.catchBody) this.exec(s); }
+            finally { this.currentScope = old; }
+          } else pendingError = e;
+        } finally {
+          if (node.finallyBody) for (const s of node.finallyBody) this.exec(s);
+        }
+        if (pendingError) throw pendingError;
+        return;
+      }
+      case 'If':
+        if (this.eval(node.cond)) this.execBlock(node.body);
+        else if (node.elseIf) this.exec(node.elseIf);
+        else if (node.elseBody) this.execBlock(node.elseBody);
+        return;
+      case 'While': {
+        let guard = 0;
+        while (this.eval(node.cond)) {
+          if (++guard > 1e6) throw new ThrowSignal('Бесконечный цикл');
+          try { this.execBlock(node.body); }
+          catch (e) {
+            if (e instanceof BreakSignal) break;
+            if (e instanceof ContinueSignal) continue;
+            throw e;
+          }
+        }
+        return;
+      }
+      case 'DoWhile': {
+        let guard = 0;
+        do {
+          if (++guard > 1e6) throw new ThrowSignal('Бесконечный цикл');
+          try { this.execBlock(node.body); }
+          catch (e) {
+            if (e instanceof BreakSignal) break;
+            if (e instanceof ContinueSignal) continue;
+            throw e;
+          }
+        } while (this.eval(node.cond));
+        return;
+      }
+      case 'Foreach': {
+        const arr = this.eval(node.iterable);
+        if (!Array.isArray(arr)) throw new ThrowSignal('foreach работает только с массивами');
+        for (let i = 0; i < arr.length; i++) {
+          const scope = new Scope(this.currentScope);
+          const old = this.currentScope;
+          this.currentScope = scope;
+          if (node.iterVar.declare) this.currentScope.declare(node.iterVar.name, arr[i]);
+          else this.currentScope.set(node.iterVar.name, arr[i]);
+          let shouldBreak = false;
+          try { for (const s of node.body) this.exec(s); }
+          catch (e) {
+            if (e instanceof BreakSignal) shouldBreak = true;
+            else if (e instanceof ContinueSignal) {}
+            else { this.currentScope = old; throw e; }
+          }
+          this.currentScope = old;
+          if (shouldBreak) break;
+        }
+        return;
+      }
+      case 'For': {
+        const scope = new Scope(this.currentScope);
+        const old = this.currentScope;
+        this.currentScope = scope;
+        try {
+          if (node.init) this.exec(node.init);
+          let guard = 0;
+          while (this.eval(node.cond)) {
+            if (++guard > 1e6) throw new ThrowSignal('Бесконечный цикл');
+            try { this.execBlock(node.body); }
+            catch (e) {
+              if (e instanceof BreakSignal) break;
+              if (e instanceof ContinueSignal) { if (node.update) this.eval(node.update); continue; }
+              throw e;
+            }
+            if (node.update) this.eval(node.update);
+          }
+        } finally { this.currentScope = old; }
+        return;
+      }
+      case 'Return': throw new ReturnSignal(node.value ? this.eval(node.value) : null);
+      case 'Break': throw new BreakSignal();
+      case 'Continue': throw new ContinueSignal();
+      case 'Func': return;
+      case 'StructDecl': case 'UnionDecl': case 'EnumDecl': return;
+    }
+    throw new ThrowSignal(`Неизвестная инструкция: ${node.type}`);
+  }
+
+  execBlock(body) {
+    const scope = new Scope(this.currentScope);
+    const old = this.currentScope;
+    this.currentScope = scope;
+    try { for (const s of body) this.exec(s); }
+    finally { this.currentScope = old; }
+  }
+
+  callBuiltin(obj, method, args) {
+    if (obj && obj.__math) {
+      const a = args[0], b = args[1];
+      switch (method) {
+        case 'sqrt': return Math.sqrt(a);
+        case 'pow': return Math.pow(a, b);
+        case 'abs': return Math.abs(a);
+        case 'max': return Math.max(a, b);
+        case 'min': return Math.min(a, b);
+        case 'floor': return Math.floor(a);
+        case 'ceil': return Math.ceil(a);
+        case 'round': return Math.round(a);
+        case 'random': return Math.floor(Math.random() * 1000000);
+      }
+      throw new ThrowSignal(`Math.${method} не поддерживается`);
+    }
+    if (typeof obj === 'string') {
+      switch (method) {
+        case 'length': return obj.length;
+        case 'charAt': return obj.charAt(args[0]);
+        case 'substring': return obj.substring(args[0], args[1]);
+        case 'toUpper': return obj.toUpperCase();
+        case 'toLower': return obj.toLowerCase();
+        case 'contains': return obj.indexOf(args[0]) !== -1;
+        case 'indexOf': return obj.indexOf(args[0]);
+        case 'replace': return obj.split(args[0]).join(args[1]);
+        case 'trim': return obj.trim();
+      }
+      throw new ThrowSignal(`Метод "${method}" не поддерживается`);
+    }
+    if (Array.isArray(obj)) {
+      switch (method) {
+        case 'length': return obj.length;
+        case 'push': obj.push(args[0]); return obj.length;
+        case 'pop': return obj.pop();
+        case 'join': return obj.join(args[0] ?? ',');
+        case 'indexOf': return obj.indexOf(args[0]);
+        case 'map': {
+          const fn = args[0], result = [];
+          for (const x of obj) result.push(this.callFunction(fn, [x]));
+          return result;
+        }
+        case 'filter': {
+          const fn = args[0], result = [];
+          for (const x of obj) if (this.callFunction(fn, [x])) result.push(x);
+          return result;
+        }
+        case 'reduce': {
+          const fn = args[0];
+          let acc = args[1];
+          for (const x of obj) acc = this.callFunction(fn, [acc, x]);
+          return acc;
+        }
+      }
+      throw new ThrowSignal(`Метод "${method}" не поддерживается`);
+    }
+    return undefined;
+  }
+
+  callFunction(fn, args) {
+    if (fn instanceof UserFunction) {
+      const scope = new Scope(fn.closure || this.global);
+      fn.params.forEach((p, i) => scope.declare(p.name, args[i] ?? 0));
+      const old = this.currentScope;
+      this.currentScope = scope;
+      try {
+        for (const s of fn.body) this.exec(s);
+        return 0;
+      } catch (e) {
+        if (e instanceof ReturnSignal) return e.value;
+        throw e;
+      } finally { this.currentScope = old; }
+    }
+    throw new ThrowSignal('Не функция');
+  }
+
+  eval(node) {
+    switch (node.type) {
+      case 'Number': case 'String': case 'Bool': return node.value;
+      case 'Null': return null;
+      case 'ArrayLit': return node.items.map(x => this.eval(x));
+      case 'This':
+        if (!this.currentThis) throw new ThrowSignal('this вне метода');
+        return this.currentThis;
+      case 'Super':
+        if (!this.currentSuper) throw new ThrowSignal('super вне метода');
+        return this.currentSuper;
+      case 'FunctionLiteral': return new UserFunction(node.params, node.body, this.currentScope, '<lambda>', node.isGenerator);
+      case 'TypeOf': return typeOf(this.eval(node.value));
+
+      // НОВОЕ: time, date, datetime
+      case 'TimeNow':     return getTimeStr();
+      case 'DateNow':     return getDateStr();
+      case 'DateTimeNow': return getDateTimeStr();
+
+      case 'Var': {
+        if (node.name === 'Math') return { __math: true };
+        if (this.structs.has(node.name)) return { __static_of: node.name };
+        return this.currentScope.get(node.name);
+      }
+      case 'Member': {
+        const obj = this.eval(node.object);
+        if (obj === null || obj === undefined) throw new ThrowSignal(`Обращение к "${node.property}" у null`);
+        if (typeof obj !== 'object') throw new ThrowSignal(`Обращение к "${node.property}" у не-объекта`);
+        if (obj.__enumName) {
+          if (!(node.property in obj)) throw new ThrowSignal(`В enum "${obj.__enumName}" нет "${node.property}"`);
+          return obj[node.property];
+        }
+        if (obj.__static_of) {
+          const st = this.statics.get(obj.__static_of);
+          if (st && node.property in st) return st[node.property];
+          const tmpl = this.structs.get(obj.__static_of);
+          if (tmpl) {
+            const m = tmpl.methods.find(mm => mm.name === node.property && mm.isStatic);
+            if (m) return { __static_method: m, __struct: obj.__static_of };
+          }
+          throw new ThrowSignal(`У ${obj.__static_of} нет "${node.property}"`);
+        }
+        if (!(node.property in obj) && !(obj.__methods && node.property in obj.__methods)) {
+          throw new ThrowSignal(`У объекта типа "${obj.__type}" нет поля "${node.property}"`);
+        }
+        return obj[node.property];
+      }
+      case 'Assign': { const value = this.eval(node.value); this.assignTo(node.target, value); return value; }
+      case 'CompoundAssign': {
+        const op = node.op[0];
+        const current = this.eval(node.target);
+        const rhs = this.eval(node.value);
+        let value;
+        switch (op) {
+          case '+': value = current + rhs; break;
+          case '-': value = current - rhs; break;
+          case '*': value = current * rhs; break;
+          case '/': if (rhs === 0) throw new ThrowSignal('Деление на ноль'); value = current / rhs; break;
+        }
+        this.assignTo(node.target, value);
+        return value;
+      }
+      case 'Update': {
+        const oldValue = this.eval(node.target);
+        const newValue = node.op === '++' ? oldValue + 1 : oldValue - 1;
+        this.assignTo(node.target, newValue);
+        return node.prefix ? newValue : oldValue;
+      }
+      case 'Index': {
+        const obj = this.eval(node.object);
+        const idx = this.eval(node.index);
+        if (typeof obj === 'string') return obj.charAt(idx);
+        if (!Array.isArray(obj)) throw new ThrowSignal('Индексация не массива');
+        return obj[idx];
+      }
+      case 'Unary':
+        if (node.op === '-') return -this.eval(node.value);
+        if (node.op === '!') return !this.eval(node.value);
+        break;
+      case 'Binary': {
+        const l = this.eval(node.left);
+        const r = this.eval(node.right);
+        switch (node.op) {
+          case '+': return l + r;
+          case '-': return l - r;
+          case '*': return l * r;
+          case '/': if (r === 0) throw new ThrowSignal('Деление на ноль'); return l / r;
+          case '%': if (r === 0) throw new ThrowSignal('Деление на ноль'); return l % r;
+          case '<': return l < r;
+          case '>': return l > r;
+          case '<=': return l <= r;
+          case '>=': return l >= r;
+          case '==': return l === r;
+          case '!=': return l !== r;
+        }
+        break;
+      }
+      case 'Logical': {
+        const l = this.eval(node.left);
+        if (node.op === '||') return l ? true : this.eval(node.right);
+        if (node.op === '&&') return l ? this.eval(node.right) : false;
+        break;
+      }
+      case 'Call': {
+        const callee = node.callee;
+        if (callee.type === 'Var' && callee.name === 'print') {
+          if (node.args.length === 0) return '';
+          const v = this.eval(node.args[0]);
+          this.write(formatValue(v));
+          return v;
+        }
+        if (callee.type === 'Var' && callee.name === 'println') {
+          if (node.args.length === 0) { this.write('\n'); return ''; }
+          const v = this.eval(node.args[0]);
+          this.write(formatValue(v) + '\n');
+          return v;
+        }
+        if (callee.type === 'Var' && callee.name === 'input') {
+          const promptText = node.args.length > 0 ? this.eval(node.args[0]) : '';
+          const val = this.inputFn(promptText);
+          if (val === null || val === undefined) return '';
+          if (/^-?\d+$/.test(String(val).trim())) return Number(String(val).trim());
+          return String(val);
+        }
+        if (callee.type === 'Var' && this.structs.has(callee.name)) {
+          const args = node.args.map(a => this.eval(a));
+          return this.createStructInstance(callee.name, args);
+        }
+        if (callee.type === 'Var') {
+          const name = callee.name;
+          const fn = this.funcs.get(name);
+          if (!fn) throw new ThrowSignal(`Функция "${name}" не найдена`);
+          const args = node.args.map(a => this.eval(a));
+          return this.callFunction(fn, args);
+        }
+        if (callee.type === 'Member') {
+          const obj = this.eval(callee.object);
+          const prop = callee.property;
+          if (obj && (obj.__math || typeof obj === 'string' || Array.isArray(obj))) {
+            const args = node.args.map(a => this.eval(a));
+            const r = this.callBuiltin(obj, prop, args);
+            if (r !== undefined) return r;
+          }
+          if (obj && obj.__super_methods && obj.__super_methods[prop]) {
+            const m = obj.__super_methods[prop];
+            const args = node.args.map(a => this.eval(a));
+            return this.callMethod(obj.__super_target, m, args);
+          }
+          if (obj && obj.__static_method && prop === obj.__static_method.name) {
+            const m = obj.__static_method;
+            const args = node.args.map(a => this.eval(a));
+            const scope = new Scope(this.global);
+            m.params.forEach((p, i) => scope.declare(p.name, args[i] ?? 0));
+            const old = this.currentScope;
+            this.currentScope = scope;
+            try {
+              for (const s of m.body) this.exec(s);
+              return 0;
+            } catch (e) {
+              if (e instanceof ReturnSignal) return e.value;
+              throw e;
+            } finally { this.currentScope = old; }
+          }
+          const m = obj && obj.__methods && obj.__methods[prop];
+          if (!m) throw new ThrowSignal(`У объекта нет метода "${prop}"`);
+          const args = node.args.map(a => this.eval(a));
+          return this.callMethod(obj, m, args);
+        }
+        throw new ThrowSignal('Не могу вызвать');
+      }
+    }
+    throw new ThrowSignal(`Не могу вычислить: ${node.type}`);
+  }
+
+  callMethod(obj, m, args) {
+    const scope = new Scope(this.currentScope);
+    m.params.forEach((p, i) => scope.declare(p.name, args[i] ?? 0));
+    for (const f of Object.keys(obj)) {
+      if (f.startsWith('__')) continue;
+      scope.declare(f, obj[f]);
+    }
+    const oldScope = this.currentScope;
+    const oldThis = this.currentThis;
+    const oldSuper = this.currentSuper;
+    this.currentScope = scope;
+    this.currentThis = obj;
+    this.currentSuper = obj.__super_methods
+      ? { __super_methods: obj.__super_methods, __super_target: obj.__super_target } : null;
+    try {
+      for (const s of m.body) this.exec(s);
+      for (const f of Object.keys(obj)) {
+        if (f.startsWith('__')) continue;
+        try { obj[f] = scope.get(f); } catch (e) {}
+      }
+      return 0;
+    } catch (e) {
+      for (const f of Object.keys(obj)) {
+        if (f.startsWith('__')) continue;
+        try { obj[f] = scope.get(f); } catch (err) {}
+      }
+      if (e instanceof ReturnSignal) return e.value;
+      throw e;
+    } finally {
+      this.currentScope = oldScope;
+      this.currentThis = oldThis;
+      this.currentSuper = oldSuper;
+    }
+  }
+
+  assignTo(target, value) {
+    if (target.type === 'Var') { this.currentScope.set(target.name, value); return; }
+    if (target.type === 'Index') {
+      const arr = this.eval(target.object);
+      const idx = this.eval(target.index);
+      if (!Array.isArray(arr)) throw new ThrowSignal('Индексация не массива');
+      arr[idx] = value;
+      return;
+    }
+    if (target.type === 'Member') {
+      const obj = this.eval(target.object);
+      if (!obj || typeof obj !== 'object') throw new ThrowSignal('Обращение к полю у не-объекта');
+      if (obj.__static_of) {
+        const st = this.statics.get(obj.__static_of);
+        if (st && target.property in st) { st[target.property] = value; return; }
+      }
+      if (obj.__type && this.structs.get(obj.__type)?.type === 'UnionDecl') {
+        for (const k of Object.keys(obj)) {
+          if (k.startsWith('__')) continue;
+          obj[k] = 0;
+        }
+      }
+      obj[target.property] = value;
+      return;
+    }
+    throw new ThrowSignal('Недопустимая цель присваивания');
+  }
+}
+
+// ============================================================
+// AST
+// ============================================================
+function astToString(node, prefix = '', isLast = true) {
+  if (node === null || node === undefined) return '';
+  let label = node.type;
+  if (['Number','String','Bool'].includes(node.type)) label += ' (' + JSON.stringify(node.value) + ')';
+  else if (node.type === 'Var') label += ' (' + node.name + ')';
+  else if (node.type === 'Func') label += ' (' + node.name + (node.isInline ? ', inline' : '') + ')';
+  else if (node.type === 'Binary' || node.type === 'Logical') label += ' [' + node.op + ']';
+  let result = prefix + (isLast ? '└─ ' : '├─ ') + label + '\n';
+  const children = [];
+  const add = (c) => { if (c) children.push(c); };
+  switch (node.type) {
+    case 'Program': node.body.forEach(add); break;
+    case 'VarDecl': if (node.value) add(node.value); break;
+    case 'Func': node.body.forEach(add); break;
+    case 'FunctionLiteral': node.body.forEach(add); break;
+    case 'If': add(node.cond); node.body.forEach(add);
+      if (node.elseIf) add(node.elseIf);
+      if (node.elseBody) node.elseBody.forEach(add); break;
+    case 'While': add(node.cond); node.body.forEach(add); break;
+    case 'DoWhile': node.body.forEach(add); add(node.cond); break;
+    case 'Foreach': add(node.iterable); node.body.forEach(add); break;
+    case 'For': if (node.init) add(node.init); add(node.cond);
+      if (node.update) add(node.update); node.body.forEach(add); break;
+    case 'Switch': add(node.disc); node.cases.forEach(c => { add(c.value); c.body.forEach(add); }); break;
+    case 'Return': if (node.value) add(node.value); break;
+    case 'ExprStmt': add(node.expr); break;
+    case 'Throw': add(node.value); break;
+    case 'Yield': if (node.value) add(node.value); break;
+    case 'Assert': add(node.cond); break;
+    case 'TypeOf': add(node.value); break;
+    case 'Binary': case 'Logical': add(node.left); add(node.right); break;
+    case 'Unary': add(node.value); break;
+    case 'Assign': case 'CompoundAssign': add(node.target); add(node.value); break;
+    case 'Update': add(node.target); break;
+    case 'Call': add(node.callee); node.args.forEach(add); break;
+    case 'Index': add(node.object); add(node.index); break;
+    case 'Member': add(node.object); break;
+    case 'ArrayLit': node.items.forEach(add); break;
+  }
+  const newPrefix = prefix + (isLast ? '   ' : '│  ');
+  children.forEach((c, i) => { result += astToString(c, newPrefix, i === children.length - 1); });
+  return result;
+}
+
+// ============================================================
+// ВВОД
+// ============================================================
+let inputQueue = [], inputIndex = 0;
+function readInput(promptText) {
+  const ta = document.getElementById('inputData');
+  if (inputIndex >= inputQueue.length) {
+    const raw = (ta.value || '').split('\n');
+    inputQueue = raw.filter(l => l.length > 0);
+    inputIndex = 0;
+  }
+  if (inputQueue.length === 0) {
+    const val = window.prompt(promptText || 'Введите значение:');
+    return val;
+  }
+  return inputQueue[inputIndex++];
+}
+
+// ============================================================
+// ЗАПУСК
+// ============================================================
+function run() {
+  inputQueue = []; inputIndex = 0;
+  const out = document.getElementById('outBody');
+  const badge = document.getElementById('outBadge');
+  out.innerHTML = ''; badge.textContent = ''; badge.style.color = '';
+  document.getElementById('varsBody').innerHTML = '';
+  document.getElementById('varsBadge').textContent = '—';
+  document.getElementById('modsBody').innerHTML = '<span style="color:#666">— не подключены —</span>';
+  document.getElementById('modsBadge').textContent = '—';
+
+  let buffer = '';
+  const write = (s) => { buffer += s; };
+
+  try {
+    const raw = document.getElementById('code').value;
+    const modules = [];
+    const defines = new Map();
+    const processed = preprocess(raw, new Set(), modules, defines);
+
+    const info = [];
+    for (const m of modules) info.push({ name: m.name, type: m.type });
+    for (const [name, def] of defines) info.push({ name: '#define ' + name, type: 'macro' });
+
+    if (info.length > 0) {
+      document.getElementById('modsBody').innerHTML = info.map(m =>
+        `<div><span class="k">${escapeHtml(m.name)}</span> <span style="color:#666">(${m.type})</span></div>`
+      ).join('');
+      document.getElementById('modsBadge').textContent = info.length + ' шт.';
+    }
+
+    const tokens = tokenize(processed);
+    const ast = new Parser(tokens).parse();
+    document.getElementById('astBody').textContent = astToString(ast).trim();
+
+    const interp = new Interpreter(write, readInput);
+    interp.run(ast);
+
+    out.textContent = buffer;
+    badge.textContent = '✓ ok';
+    badge.style.color = '#4ec9b0';
+
+    const snap = interp.global.snapshot();
+    const keys = Object.keys(snap).filter(k => !k.startsWith('__')).sort();
+    const varsBody = document.getElementById('varsBody');
+    if (keys.length === 0) varsBody.innerHTML = '<span style="color:#666">— пусто —</span>';
+    else varsBody.innerHTML = keys.slice(0, 30).map(k =>
+      `<div><span class="k">${escapeHtml(k)}</span> = <span class="v">${escapeHtml(formatValue(snap[k]))}</span></div>`
+    ).join('');
+    document.getElementById('varsBadge').textContent = keys.length + ' шт.';
+  } catch (e) {
+    let msg;
+    if (e instanceof ThrowSignal) msg = e.value;
+    else msg = e.message;
+    out.innerHTML = escapeHtml(buffer) + `<span class="err">❌ ${escapeHtml(String(msg))}</span>`;
+    badge.textContent = '✗ error';
+    badge.style.color = '#f48771';
+  }
+}
+
+function clearOutput() {
+  document.getElementById('outBody').innerHTML = '';
+  document.getElementById('outBadge').textContent = '';
+  document.getElementById('varsBody').innerHTML = '';
+  document.getElementById('varsBadge').textContent = '—';
+}
+
+function toggleAst() {
+  astVisible = !astVisible;
+  document.getElementById('astPanel').style.display = astVisible ? '' : 'none';
+  document.getElementById('astBtn').textContent = astVisible ? '🌳 Скрыть AST' : '🌳 AST';
+}
+
+function showModules() {
+  const list = Object.keys(BUILTIN_MODULES).sort();
+  let msg = '📚 Встроенные модули:\n\n';
+  for (const m of list) {
+    const lines = BUILTIN_MODULES[m].split('\n').length;
+    msg += '  #include <' + m + '>  (' + lines + ' строк)\n';
+  }
+  msg += '\n📌 Новые ключевые слова:\n\n';
+  msg += '  inline — модификатор функции\n';
+  msg += '  array { } — литерал массива\n';
+  msg += '  auto — автовывод типа\n';
+  msg += '  unsigned — беззнаковое число\n';
+  msg += '  long — большое число\n';
+  msg += '  #define NAME value — макрос\n';
+  msg += '  time — текущее время\n';
+  msg += '  date — текущая дата\n';
+  msg += '  datetime — дата и время\n';
+  alert(msg);
+}
+
+function downloadCode() {
+  const code = document.getElementById('code').value;
+  const blob = new Blob([code], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'program.mc';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length === 0) return;
+  if (files.length === 1) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const ta = document.getElementById('code');
+      ta.value = ev.target.result;
+      ta.dispatchEvent(new Event('input'));
+    };
+    reader.readAsText(files[0]);
+    return;
+  }
+  let loaded = 0;
+  for (const file of files) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      USER_FILES[file.name] = ev.target.result;
+      loaded++;
+      if (loaded === files.length) {
+        alert('Загружено в VFS: ' + files.map(f => f.name).join(', '));
+      }
+    };
+    reader.readAsText(file);
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); run(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); downloadCode(); }
+});
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (document.getElementById('code').value.trim()) run();
+  }, 100);
+});
+</script>
+</body>
+</html>
